@@ -29,7 +29,7 @@ class MedicalBlogGenerator(Workflow):
     """Medical blog post generator using Groq"""
 
     search_agent: Agent = Agent(
-        model=Groq(id="llama-3.3-70b-versatile"),
+        model=Groq(id="llama-3.3-70b-versatile",api_key='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'),
         tools=[ExaTools(
             start_published_date=(datetime.datetime.now() - relativedelta(years=5)).strftime("%Y-%m-%d"),
             type="keyword",
@@ -57,7 +57,7 @@ class MedicalBlogGenerator(Workflow):
     )
 
     content_agent: Agent = Agent(
-        model=Groq(id="llama-3.3-70b-versatile"),
+        model=Groq(id="llama-3.3-70b-versatile",api_key='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'),
         markdown=True,
         instructions=[
             "You are a medical writer creating evidence-based blog posts.",
