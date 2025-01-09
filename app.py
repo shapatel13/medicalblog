@@ -1,16 +1,15 @@
+import streamlit as st
+import datetime
 from typing import List, Iterator, Optional
-
-from phi.agent import Agent, RunResponse
-from phi.workflow import Workflow, RunEvent
+from phi.agent import Agent
+from phi.workflow import Workflow, RunResponse, RunEvent
 from phi.model.groq import Groq
 from phi.storage.workflow.sqlite import SqlWorkflowStorage
-from phi.utils.pprint import pprint_run_response
-from phi.utils.log import logger
 from phi.tools.exa import ExaTools
+from phi.utils.log import logger
 from pydantic import BaseModel, Field
-import datetime
-from textwrap import dedent
 from dateutil.relativedelta import relativedelta
+from textwrap import dedent
 
 class MedicalArticle(BaseModel):
     """Structure for medical article metadata"""
@@ -30,7 +29,7 @@ class MedicalBlogGenerator(Workflow):
     """Medical blog post generator using Groq"""
 
     search_agent: Agent = Agent(
-        model=Groq(id="llama-3.3-70b-versatile",api_key='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'),
+        model=Groq(id="llama-3.3-70b-versatile"),
         tools=[ExaTools(
             start_published_date=(datetime.datetime.now() - relativedelta(years=5)).strftime("%Y-%m-%d"),
             type="keyword",
@@ -58,40 +57,42 @@ class MedicalBlogGenerator(Workflow):
     )
 
     content_agent: Agent = Agent(
-        model=Groq(id="llama-3.3-70b-versatile",api_key='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'),
+        model=Groq(id="llama-3.3-70b-versatile"),
         markdown=True,
         instructions=[
             "You are a medical writer creating evidence-based blog posts.",
+            "Target audience: Medical professionals and specialists.",
+            "Writing style: Academic, sophisticated, with precise medical terminology.",
             "Use this exact format:",
             
-            "# [Title]",
-            "[2-3 sentence introduction]",
+            "# Latest Evidence: [Title]",
+            "[3-4 sentence introduction with specific epidemiological data]",
             
             "## 🎯 Key Points",
-            "- Finding 1 with **statistics**",
-            "- Finding 2 with clinical impact",
-            "- Finding 3 with practical takeaway",
+            "- Primary finding with detailed **statistical analysis**",
+            "- Secondary outcome with **confidence intervals**",
+            "- Tertiary result with **p-values and clinical significance**",
             
             "## 📚 Background",
-            "[2-3 paragraphs]",
+            "[3-4 paragraphs with pathophysiological mechanisms and current guidelines]",
             
             "## 🔍 Recent Evidence",
             "### Key Findings",
-            "[Main results with **statistics**]",
+            "[Detailed statistical analysis with **methodology and results**]",
             
             "### Clinical Implications",
-            "[Practical applications]",
+            "[Evidence-based recommendations with levels of evidence]",
             
             "## 💡 Expert Commentary",
-            "[Analysis]",
+            "[Critical analysis of methodological strengths/limitations]",
             
             "## 💎 Clinical Pearls",
-            "- Pearl 1",
-            "- Pearl 2",
-            "- Pearl 3",
+            "- Evidence-based recommendation (Level A)",
+            "- Key mechanistic insight",
+            "- Critical implementation consideration",
             
             "## 🎯 Bottom Line",
-            "[Clear conclusion]"
+            "[Synthesis of evidence with specific recommendations]"
         ]
     )
     
@@ -236,7 +237,9 @@ class MedicalBlogGenerator(Workflow):
         ])
 
         prompt = dedent(f"""
-        Create a comprehensive medical blog post about {self.topic} using these articles:
+        Create a comprehensive, advanced-level medical blog post about {self.topic} using these articles.
+        Target audience: Medical professionals and specialists.
+        Writing style: Academic, sophisticated, with precise medical terminology.
 
         {articles_context}
 
@@ -244,41 +247,41 @@ class MedicalBlogGenerator(Workflow):
 
         # Latest Evidence: {self.topic}
 
-        [2-3 sentence introduction]
+        [3-4 sentence introduction with specific epidemiological data]
 
         ## 🎯 Key Points
-        - Finding 1 with **statistics**
-        - Finding 2 with clinical impact
-        - Finding 3 with practical takeaway
+        - Primary finding with detailed **statistical analysis**
+        - Secondary outcome with **confidence intervals**
+        - Tertiary result with **p-values and clinical significance**
 
         ## 📚 Background
-        [2-3 paragraphs]
+        [3-4 paragraphs with pathophysiological mechanisms and current guidelines]
 
         ## 🔍 Recent Evidence
         ### Key Findings
-        [Main results with **statistics**]
+        [Detailed statistical analysis with **methodology and results**]
 
         ### Clinical Implications
-        [Practical applications]
+        [Evidence-based recommendations with levels of evidence]
 
         ## 💡 Expert Commentary
-        [Critical analysis]
+        [Critical analysis of methodological strengths/limitations]
 
         ## 💎 Clinical Pearls
-        - Pearl 1
-        - Pearl 2
-        - Pearl 3
+        - Evidence-based recommendation (Level A)
+        - Key mechanistic insight
+        - Critical implementation consideration
 
         ## 🎯 Bottom Line
-        [Clear conclusion]
+        [Synthesis of evidence with specific recommendations]
 
         Requirements:
-        1. Use EXACTLY these headers and emojis
-        2. Bold all statistics using **
-        3. Professional but engaging tone
-        4. ~1000 words
-        5. Include specific findings from articles
-        6. Make it evidence-based and practical
+        1. Use advanced medical terminology
+        2. Include detailed statistical analyses
+        3. Reference specific guidelines and evidence levels
+        4. Discuss pathophysiological mechanisms
+        5. Critical analysis of methodology
+        6. ~1500 words
         """)
 
         logger.info("Generating blog post...")
@@ -315,9 +318,7 @@ class MedicalBlogGenerator(Workflow):
         blog_post = self.generate_blog_post(articles)
         self.add_blog_post_to_cache(self.topic, blog_post)
 
-        final_post = f"""# Latest Evidence Update: {self.topic}
-
-{blog_post.content}
+        final_post = f"""{blog_post.content}
 
 ---
 ### 📚 References
@@ -335,29 +336,69 @@ Generated: {datetime.datetime.now().strftime("%Y-%m-%d")}
         )
 
 def main():
-    """Main entry point"""
-    print("\n🔬 Medical Blog Post Generator")
-    topic = input("\n📝 Enter medical topic: ").strip()
-    
-    while not topic:
-        print("Please enter a valid topic.")
-        topic = input("\n📝 Enter medical topic: ").strip()
-
-    url_safe_topic = topic.lower().replace(" ", "-")
-    
-    blog_generator = MedicalBlogGenerator(
-        topic=topic,
-        session_id=f"medical-blog-{url_safe_topic}",
-        storage=SqlWorkflowStorage(
-            table_name="medical_blog_workflows",
-            db_file="tmp/workflows.db",
-        ),
+    st.set_page_config(
+        page_title="Medical Blog Generator",
+        page_icon="🏥",
+        layout="wide"
     )
 
-    print("\n🔍 Generating blog post...")
-    blog_post = blog_generator.run(use_cache=False)
-    for response in blog_post:
-        print("\n", response.content)
+    st.title("🏥 Medical Blog Generator")
+    st.markdown("Generate evidence-based medical content with latest research")
+
+    # Sidebar with minimal settings
+    with st.sidebar:
+        st.header("About")
+        st.markdown("""
+        This tool generates comprehensive medical blog posts by:
+        - Searching recent medical literature
+        - Analyzing clinical studies
+        - Creating evidence-based content
+        """)
+        use_cache = st.checkbox("Use cached posts", value=False)
+
+    # Simple input area
+    topic = st.text_input(
+        "Enter medical topic",
+        placeholder="e.g., Septic Shock Management",
+        key="topic_input"
+    )
+    
+    if st.button("Generate Blog Post", type="primary"):
+        if not topic:
+            st.error("Please enter a medical topic")
+        else:
+            try:
+                with st.spinner("Generating blog post..."):
+                    url_safe_topic = topic.lower().replace(" ", "-")
+                    
+                    blog_generator = MedicalBlogGenerator(
+                        topic=topic,
+                        session_id=f"medical-blog-{url_safe_topic}",
+                        storage=SqlWorkflowStorage(
+                            table_name="medical_blog_workflows",
+                            db_file="tmp/workflows.db",
+                        ),
+                    )
+                    
+                    for response in blog_generator.run(use_cache=use_cache):
+                        st.markdown(response.content)
+                        
+                        # Add download button after generation
+                        st.download_button(
+                            label="Download as Markdown",
+                            data=response.content,
+                            file_name=f"medical_blog_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
+                            mime="text/markdown"
+                        )
+            except Exception as e:
+                st.error(f"Error generating blog post: {str(e)}")
+
+    # Footer
+    st.markdown("---")
+    st.markdown(
+        "Created for medical professionals | Powered by AI technology",
+        help="Uses advanced AI to synthesize medical literature"
+    )
 
 if __name__ == "__main__":
-    main()
+    main() 
