@@ -1,2 +1,1 @@
-# medicalblog
-medical blog generator 
+medical blog generator
